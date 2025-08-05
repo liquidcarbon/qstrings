@@ -1,9 +1,13 @@
-workflow_dispatch:
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   pypi-publish:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'release')
     environment:
       name: pypi
       url: https://pypi.org/p/qstrings
