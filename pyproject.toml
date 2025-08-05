@@ -1,0 +1,19 @@
+[project]
+name = "qstrings"
+version = "0.1.0"
+description = "Q-strings: query anything"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+dependencies = [
+    "sqlglot>=27.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
