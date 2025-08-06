@@ -2,6 +2,8 @@ import sqlglot
 
 
 class Q(str):
+    """Smart query string."""
+
     def __new__(cls, s: str, **kwargs):
         instance = str.__new__(cls, s)
         try:
@@ -12,3 +14,13 @@ class Q(str):
                 raise e
             instance.errors = str(e)
         return instance
+
+
+def sqlglot_sql_q(ex: sqlglot.expressions.Expression, *args, **kwargs):
+    """
+    Add method to sqlglot's Expression.sql method to return a Q string.
+    """
+    return Q(ex.sql(*args, **kwargs))
+
+
+sqlglot.expressions.Expression.q = sqlglot_sql_q
