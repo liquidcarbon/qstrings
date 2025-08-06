@@ -1,0 +1,1 @@
+SELECT {num} AS answer
