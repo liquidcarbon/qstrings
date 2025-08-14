@@ -1,3 +1,4 @@
+import duckdb
 import pathlib
 import sqlglot
 
@@ -26,6 +27,9 @@ class Q(str):
                 raise e
             qstr.errors = str(e)
         return qstr
+
+    def run(self):
+        return duckdb.sql(self)
 
     @classmethod
     def format(

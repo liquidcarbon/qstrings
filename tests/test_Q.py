@@ -35,3 +35,9 @@ def test_q_format():
 def test_q_format_from_file():
     q = Q.format(Path(__file__).parent / "test_format.sql", file=True, num=42)
     assert q == "SELECT 42 AS answer"
+
+
+def test_run_duckdb():
+    q = Q("SELECT 42")
+    result = q.run()
+    assert result.fetchall() == [(42,)]
