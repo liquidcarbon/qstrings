@@ -1,17 +1,19 @@
-import typer
+from cyclopts import App, Parameter
 from qstrings.Q import Q
-from typing import Annotated
-
-app = typer.Typer()
+from typing import Annotated, Literal
 
 
-@app.command()
+app = App()
+
+
+@app.default()
 def run_query(
-    query: Annotated[str, typer.Argument(help="Query string")],
-    output_format: str = "df",
+    query: Annotated[Q, Parameter(help="Query string")],
+    output_format: Annotated[
+        Literal["table"], Parameter(name=["-o"], help="output format")
+    ] = "table",
 ):
-    q = Q(query)
-    print(q.run())
+    return query.run()
 
 
 if __name__ == "__main__":

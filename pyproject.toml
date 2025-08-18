@@ -14,7 +14,7 @@ q = "qstrings.cli:app"
 
 [dependency-groups]
 cli = [
-    "typer>=0.16.0",
+    "cyclopts>=3.22.5",
 ]
 dev = [
     "pytest>=8.4.1",
