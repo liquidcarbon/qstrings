@@ -1,19 +1,17 @@
 import typer
+from qstrings.Q import Q
+from typing import Annotated
 
 app = typer.Typer()
 
 
 @app.command()
-def hello(name: str):
-    print(f"Hello {name}")
-
-
-@app.command()
-def goodbye(name: str, formal: bool = False):
-    if formal:
-        print(f"Goodbye Ms. {name}. Have a good day.")
-    else:
-        print(f"Bye {name}!")
+def run_query(
+    query: Annotated[str, typer.Argument(help="Query string")],
+    output_format: str = "df",
+):
+    q = Q(query)
+    print(q.run())
 
 
 if __name__ == "__main__":
