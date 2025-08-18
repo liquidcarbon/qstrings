@@ -2,6 +2,7 @@ from cyclopts import App, Parameter
 from qstrings.Q import Q
 from typing import Annotated, Literal
 import platform
+# import narwhals as nw
 
 if platform.system() == "Windows":
     STDOUT = "CON"
@@ -24,6 +25,7 @@ def run_query(
     elif output_format == "csv":
         query.run().to_csv(STDOUT)
         res = None
+    # nw.from_native ?
     return res
 
 
