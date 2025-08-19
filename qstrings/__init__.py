@@ -1,3 +1,3 @@
-from .Q import Q
+from .Q import Q, QStringError
 
-__all__ = ["Q"]
+__all__ = ["Q", "QStringError"]

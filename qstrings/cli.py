@@ -2,7 +2,6 @@ from cyclopts import App, Parameter
 from qstrings.Q import Q
 from typing import Annotated, Literal
 import platform
-# import narwhals as nw
 
 if platform.system() == "Windows":
     STDOUT = "CON"
@@ -10,22 +9,26 @@ else:
     STDOUT = "/dev/stdout"
 
 
-app = App()
+app = App(help="Query anything!")
 
 
 @app.default()
 def run_query(
-    query: Annotated[Q, Parameter(help="Query string")],
+    query: Annotated[str, Parameter(help="Query string", show_default=False)] = "",
+    file: Annotated[
+        str, Parameter(name=["-f", "--file"], help="File template", show_default=False)
+    ] = "",
     output_format: Annotated[
-        Literal["csv", "table"], Parameter(name=["-o"], help="output format")
+        Literal["csv", "table"], Parameter(name=["-o"], help="Output format")
     ] = "table",
+    **kwargs,
 ):
+    q = Q(query, file=file, **kwargs)
     if output_format == "table":
-        res = query.run()
+        res = q.run()
     elif output_format == "csv":
-        query.run().to_csv(STDOUT)
+        q.run().to_csv(STDOUT)
         res = None
-    # nw.from_native ?
     return res
 
 

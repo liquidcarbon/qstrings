@@ -1,59 +1,68 @@
 import duckdb
 import pathlib
+import os
 import sqlglot
+import string
 
-from os import PathLike
-from typing import Any, Union
+from typing import Any, Dict, Union
 
 PathType = Union[pathlib.Path, Any]
-StrPath = Union[str, PathLike[str]]
+StrPath = Union[str, os.PathLike[str], None]
+
+
+def parse_keys(s: str) -> set[str]:
+    """Return a set of keys from a string formatted with {}."""
+    formatter = string.Formatter()
+    keys = set()
+    for _, fname, _, _ in formatter.parse(s):
+        if fname:
+            keys.add(fname)
+    return keys
 
 
 class Q(str):
     """Smart query string."""
 
-    def __new__(cls, s: str, parser_raises: bool = True, **kwargs):
+    def __new__(
+        cls,
+        s: str = "",
+        file: StrPath = None,
+        path_type: PathType = pathlib.Path,
+        **kwargs: Dict[str, Any],
+    ):
         """Create a Q string.
 
         Args:
             s (str): the base string.
         """
-        qstr = str.__new__(cls, s)
+
+        if file:
+            _path = path_type(file)
+            if not _path.exists():
+                raise FileNotFoundError(f"File not found: {_path}")
+            with _path.open("r") as f:
+                s = f.read()
+
+        keys_needed = parse_keys(s)
+        keys_given = set(dict(**kwargs, **os.environ))
+        keys_missing = keys_needed - keys_given
+        if keys_missing:
+            raise QStringError(f"values missing for keys: {keys_missing}")
+        s_formatted = s.format(**kwargs, **os.environ)
+
+        qstr = str.__new__(cls, s_formatted)
         try:
             qstr.ast = sqlglot.parse_one(s)
             qstr.errors = ""
         except sqlglot.errors.ParseError as e:
             if kwargs.get("validate"):
                 raise e
+            qstr.ast = None
             qstr.errors = str(e)
         return qstr
 
     def run(self):
         return duckdb.sql(self)
-
-    @classmethod
-    def format(
-        cls,
-        template: StrPath,
-        file: bool = False,
-        path_type: PathType = pathlib.Path,
-        **kwargs,
-    ):
-        if file:
-            return cls.format_from_file(template, path_type, **kwargs)
-        else:
-            return cls(template.format(**kwargs))
-
-    @classmethod
-    def format_from_file(
-        cls, path: StrPath, path_type: PathType = pathlib.Path, **kwargs
-    ):
-        _path = path_type(path)
-        if not _path.exists():
-            raise FileNotFoundError(f"File not found: {_path}")
-        with _path.open("r") as f:
-            template = f.read()
-        return cls(template.format(**kwargs))
 
 
 def sqlglot_sql_q(ex: sqlglot.expressions.Expression, *args, **kwargs):
@@ -62,3 +71,7 @@ def sqlglot_sql_q(ex: sqlglot.expressions.Expression, *args, **kwargs):
 
 
 sqlglot.expressions.Expression.q = sqlglot_sql_q
+
+
+class QStringError(Exception):
+    pass

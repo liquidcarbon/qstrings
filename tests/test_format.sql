@@ -1,1 +1,1 @@
-SELECT {num} AS answer
+SELECT {num} AS answer, '{foo}' AS foo  -- {{ ignore }}
