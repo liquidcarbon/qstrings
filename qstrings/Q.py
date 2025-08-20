@@ -73,9 +73,14 @@ class Q(BaseQ):
         return EngineRegistry[engine].run(self)
 
     def list(self, engine=None):
-        """Return the result as a DataFrame."""
+        """Return the result as a list."""
         engine = engine or "duckdb"
         return EngineRegistry[engine].list(self)
+
+    def df(self, engine=None):
+        """Return the result as a DataFrame."""
+        engine = engine or "duckdb"
+        return EngineRegistry[engine].df(self)
 
 
 class EngineRegistry(Registry, suffix="Engine"):
@@ -83,7 +88,12 @@ class EngineRegistry(Registry, suffix="Engine"):
     def run(q: Q):
         raise NotImplementedError
 
+    @abstractmethod
     def list(q: Q):
+        raise NotImplementedError
+
+    @abstractmethod
+    def df(q: Q):
         raise NotImplementedError
 
 

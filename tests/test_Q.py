@@ -74,10 +74,14 @@ def test_run_new_engine():
             funny = "lol, running a funny query"
             return result, funny
 
+        def df(q: Q):
+            return "funny", "df"
+
     q = Q("SELECT 42")
     result, funny = q.run(engine="FunnyDuckDB")
     assert result.fetchall() == [(42,)]
     assert funny == "lol, running a funny query"
+    assert q.df(engine="FunnyDuckDB") == ("funny", "df")
     with pytest.raises(NotImplementedError):
         q.list(engine="FunnyDuckDB")
     with pytest.raises(KeyError):
