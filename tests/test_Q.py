@@ -61,3 +61,24 @@ def test_run_duckdb():
     q = Q("SELECT 42")
     result = q.run()
     assert result.fetchall() == [(42,)]
+    assert q.list() == [(42,)]
+
+
+def test_run_new_engine():
+    import duckdb
+    from qstrings import EngineRegistry
+
+    class FunnyDuckDBEngine(EngineRegistry):
+        def run(q: Q):
+            result = duckdb.sql(q)
+            funny = "lol, running a funny query"
+            return result, funny
+
+    q = Q("SELECT 42")
+    result, funny = q.run(engine="FunnyDuckDB")
+    assert result.fetchall() == [(42,)]
+    assert funny == "lol, running a funny query"
+    with pytest.raises(NotImplementedError):
+        q.list(engine="FunnyDuckDB")
+    with pytest.raises(KeyError):
+        q.run(engine="NonExistentEngine")

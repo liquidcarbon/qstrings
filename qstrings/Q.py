@@ -4,7 +4,10 @@ import os
 import sqlglot
 import string
 
+from abc import abstractmethod
+from autoregistry import Registry
 from typing import Any, Dict, Union
+
 
 PathType = Union[pathlib.Path, Any]
 StrPath = Union[str, os.PathLike[str], None]
@@ -20,7 +23,7 @@ def parse_keys(s: str) -> set[str]:
     return keys
 
 
-class Q(str):
+class BaseQ(str):
     """Smart query string."""
 
     def __new__(
@@ -61,8 +64,36 @@ class Q(str):
             qstr.errors = str(e)
         return qstr
 
-    def run(self):
-        return duckdb.sql(self)
+
+class Q(BaseQ):
+    """Default qstring class with runner registry."""
+
+    def run(self, engine=None):
+        engine = engine or "duckdb"
+        return EngineRegistry[engine].run(self)
+
+    def list(self, engine=None):
+        """Return the result as a DataFrame."""
+        engine = engine or "duckdb"
+        return EngineRegistry[engine].list(self)
+
+
+class EngineRegistry(Registry, suffix="Engine"):
+    @abstractmethod
+    def run(q: Q):
+        raise NotImplementedError
+
+    def list(q: Q):
+        raise NotImplementedError
+
+
+class DuckDBEngine(EngineRegistry):
+    def run(q: Q):
+        return duckdb.sql(q)
+
+    @staticmethod
+    def list(q: Q):
+        return DuckDBEngine.run(q).fetchall()
 
 
 def sqlglot_sql_q(ex: sqlglot.expressions.Expression, *args, **kwargs):
