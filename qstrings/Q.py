@@ -6,7 +6,7 @@ import string
 
 from abc import abstractmethod
 from autoregistry import Registry
-from typing import Any, Dict, Union
+from typing import Any, Dict, Self, Union
 
 
 PathType = Union[pathlib.Path, Any]
@@ -24,7 +24,7 @@ def parse_keys(s: str) -> set[str]:
 
 
 class BaseQ(str):
-    """Smart query string."""
+    """Base Q-string class."""
 
     def __new__(
         cls,
@@ -36,7 +36,9 @@ class BaseQ(str):
         """Create a Q string.
 
         Args:
-            s (str): the base string.
+            s (str): the base string
+            file (StrPath, default=None): if set, read template from file
+            path_type (PathType, default=pathlib.Path): Path, S3Path, etc.
         """
 
         if file:
@@ -46,14 +48,17 @@ class BaseQ(str):
             with _path.open("r") as f:
                 s = f.read()
 
+        kwargs_plus_env = dict(**kwargs, **os.environ)
         keys_needed = parse_keys(s)
-        keys_given = set(dict(**kwargs, **os.environ))
+        keys_given = set(kwargs_plus_env)
         keys_missing = keys_needed - keys_given
         if keys_missing:
             raise QStringError(f"values missing for keys: {keys_missing}")
-        s_formatted = s.format(**kwargs, **os.environ)
+        refs = {k: kwargs_plus_env[k] for k in keys_needed}
+        s_formatted = s.format(**refs)
 
         qstr = str.__new__(cls, s_formatted)
+        qstr.refs = refs  # references used to create the Q string
         try:
             qstr.ast = sqlglot.parse_one(s)
             qstr.errors = ""
@@ -64,26 +69,40 @@ class BaseQ(str):
             qstr.errors = str(e)
         return qstr
 
+    def transpile(self, read: str = "duckdb", write: str = "tsql") -> Self:
+        """Transpile the SQL to a different dialect using sqlglot."""
+        if not self.ast:
+            raise QStringError("Cannot transpile invalid SQL")
+        return BaseQ(sqlglot.transpile(self.ast.sql(), read=read, write=write)[0])
+
 
 class Q(BaseQ):
     """Default qstring class with runner registry."""
 
     def run(self, engine=None):
         engine = engine or "duckdb"
-        return EngineRegistry[engine].run(self)
+        return Engine[engine].run(self)
 
     def list(self, engine=None):
         """Return the result as a list."""
         engine = engine or "duckdb"
-        return EngineRegistry[engine].list(self)
+        return Engine[engine].list(self)
 
     def df(self, engine=None):
         """Return the result as a DataFrame."""
         engine = engine or "duckdb"
-        return EngineRegistry[engine].df(self)
+        return Engine[engine].df(self)
 
 
-class EngineRegistry(Registry, suffix="Engine"):
+class Engine(Registry, suffix="Engine", overwrite=True):
+    """Registry for query engines. Subclass to implement new engines.
+
+    Overwrite helps avoid KeyCollisionError when class registration
+    happens multiple times in a single session, e.g. in notebooks.
+    For more details, see autoregistry docs:
+    https://github.com/BrianPugh/autoregistry
+    """
+
     @abstractmethod
     def run(q: Q):
         raise NotImplementedError
@@ -97,7 +116,7 @@ class EngineRegistry(Registry, suffix="Engine"):
         raise NotImplementedError
 
 
-class DuckDBEngine(EngineRegistry):
+class DuckDBEngine(Engine):
     def run(q: Q):
         return duckdb.sql(q)
 

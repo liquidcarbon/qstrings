@@ -1,7 +1,8 @@
+import duckdb
 import os
 import pytest
 from pathlib import Path
-from qstrings import Q, QStringError
+from qstrings import Engine, Q, QStringError
 from sqlglot.errors import ParseError
 
 
@@ -23,6 +24,7 @@ def test_keys_given_in_env():
     os.environ["Q_name"] = "answer"
     q = Q(s, num=42)
     assert q == "SELECT 42 AS answer"
+    assert q.refs == {"num": 42, "Q_name": "answer"}
 
 
 def test_from_file():
@@ -32,6 +34,7 @@ def test_from_file():
     os.environ["foo"] = "bar"
     q = Q(**args)
     assert q == "SELECT 42 AS answer, 'bar' AS foo  -- { ignore }"
+    assert q.refs == {"num": 42, "foo": "bar"}
 
 
 def test_parse_error():
@@ -42,8 +45,9 @@ def test_parse_error():
 
 
 def test_select_42_ast():
-    q = Q("SELECT 42")
-    assert q.ast.sql() == "SELECT 42"
+    q = Q("SELECT 42 LIMIT 1")
+    assert q.ast.sql() == "SELECT 42 LIMIT 1"
+    assert q.transpile(read="duckdb", write="tsql") == Q("SELECT TOP 1 42")
 
 
 def test_select_42_patched_q():
@@ -65,10 +69,7 @@ def test_run_duckdb():
 
 
 def test_run_new_engine():
-    import duckdb
-    from qstrings import EngineRegistry
-
-    class FunnyDuckDBEngine(EngineRegistry):
+    class FunnyDuckDBEngine(Engine):
         def run(q: Q):
             result = duckdb.sql(q)
             funny = "lol, running a funny query"

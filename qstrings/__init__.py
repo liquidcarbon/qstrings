@@ -1,3 +1,3 @@
-from .Q import EngineRegistry, Q, QStringError
+from .Q import DuckDBEngine, Engine, Q, QStringError
 
-__all__ = ["EngineRegistry", "Q", "QStringError"]
+__all__ = ["DuckDBEngine", "Engine", "Q", "QStringError"]
