@@ -1,5 +1,5 @@
 from cyclopts import App, Parameter
-from qstrings.Q import Q
+from qstrings.Q import Engine, Q
 from typing import Annotated, Literal
 import platform
 
@@ -18,6 +18,9 @@ def run_query(
     file: Annotated[
         str, Parameter(name=["-f", "--file"], help="File template", show_default=False)
     ] = "",
+    engine: Annotated[
+        Engine | str, Parameter(name=["-e"], help="Query engine")
+    ] = "duckdb",
     output_format: Annotated[
         Literal["csv", "list", "table"], Parameter(name=["-o"], help="Output format")
     ] = "table",
@@ -25,7 +28,7 @@ def run_query(
 ):
     q = Q(query, file=file, **kwargs)
     if output_format == "table":
-        res = q.run()
+        res = q.run(engine=engine)
     elif output_format == "list":
         res = q.list()
     elif output_format == "csv":

@@ -59,6 +59,7 @@ class BaseQ(str):
 
         qstr = str.__new__(cls, s_formatted)
         qstr.refs = refs  # references used to create the Q string
+        qstr.file = _path if file else None
         try:
             qstr.ast = sqlglot.parse_one(s)
             qstr.errors = ""
@@ -125,13 +126,28 @@ class DuckDBEngine(Engine):
         return DuckDBEngine.run(q).fetchall()
 
 
+class HFEngine(Engine):
+    """Hugging Face OpenAI-compatible inference API engine."""
+
+    def run(q: Q, model="openai/gpt-oss-20b:fireworks-ai"):
+        from openai import OpenAI
+
+        client = OpenAI(
+            base_url="https://router.huggingface.co/v1", api_key=os.getenv("HF_API_KEY")
+        )
+        response = client.responses.create(model=model, input=q)
+        q.response = response
+        result = response.output[1].content[0].text
+        return result
+
+
+class QStringError(Exception):
+    pass
+
+
 def sqlglot_sql_q(ex: sqlglot.expressions.Expression, *args, **kwargs):
     """Variant of sqlglot's Expression.sql that returns a Q string."""
     return Q(ex.sql(*args, **kwargs))
 
 
 sqlglot.expressions.Expression.q = sqlglot_sql_q
-
-
-class QStringError(Exception):
-    pass

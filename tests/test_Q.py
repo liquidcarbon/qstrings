@@ -25,6 +25,7 @@ def test_keys_given_in_env():
     q = Q(s, num=42)
     assert q == "SELECT 42 AS answer"
     assert q.refs == {"num": 42, "Q_name": "answer"}
+    assert q.file is None
 
 
 def test_from_file():
@@ -35,6 +36,7 @@ def test_from_file():
     q = Q(**args)
     assert q == "SELECT 42 AS answer, 'bar' AS foo  -- { ignore }"
     assert q.refs == {"num": 42, "foo": "bar"}
+    assert q.file and q.file.name == "test_format.sql"
 
 
 def test_parse_error():
