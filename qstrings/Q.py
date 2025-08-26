@@ -31,6 +31,7 @@ class BaseQ(str):
     def __new__(
         cls,
         s: str = "",
+        *,
         file: StrPath = None,
         path_type: PathType = pathlib.Path,
         **kwargs: Dict[str, Any],

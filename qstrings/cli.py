@@ -1,5 +1,4 @@
 from cyclopts import App, Parameter
-from pathlib import Path
 from typing import Annotated, Literal, Optional
 import platform
 import sys
@@ -13,7 +12,7 @@ else:
     STDOUT = "/dev/stdout"
 
 
-log.debug("Q-strings CLI")
+# log.debug("Q-strings CLI")
 app = App(help="Query anything!")
 
 

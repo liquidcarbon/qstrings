@@ -1,6 +1,6 @@
 [project]
 name = "qstrings"
-version = "0.2.1"
+version = "0.2.2"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,6 +15,7 @@ dependencies = [
 q = "qstrings.cli:app"
 
 [dependency-groups]
+all = ["ai", "cli"]
 ai = [
     "openai>=1.101.0",
 ]
