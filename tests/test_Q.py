@@ -7,7 +7,7 @@ from sqlglot.errors import ParseError
 
 
 def test_empty_string():
-    q = Q("")
+    q = Q("", quiet=True)
     assert q == ""
     assert q.ast is None
     assert q.errors
@@ -29,6 +29,9 @@ def test_keys_given_in_env():
 
 
 def test_from_file():
+    args = dict(file="test_does_not_exist*.sql")
+    with pytest.raises(FileNotFoundError, match="File not found:"):
+        _ = Q(**args)
     args = dict(file=Path(__file__).parent / "test_format.sql", num=42)
     with pytest.raises(QStringError, match="values missing for keys: {'foo'}"):
         _ = Q(**args)
@@ -46,13 +49,13 @@ def test_parse_error():
         _ = Q("SELE 42", validate=True)
 
 
-def test_select_42_ast():
+def test_select_42_ast_transpile():
     q = Q("SELECT 42 LIMIT 1")
     assert q.ast.sql() == "SELECT 42 LIMIT 1"
     assert q.transpile(read="duckdb", write="tsql") == Q("SELECT TOP 1 42")
 
 
-def test_select_42_patched_q():
+def test_select_42_ast_patched_q():
     q = Q("SELECT 42")
     q1 = q.ast.from_("table").q()
     assert isinstance(q1, Q)
@@ -63,11 +66,24 @@ def test_select_42_patched_q():
     assert q1.ast == q2.ast
 
 
-def test_run_duckdb():
+def test_select_42_ast_limit():
     q = Q("SELECT 42")
-    result = q.run()
+    q_limit = q.limit(1)
+    assert q_limit == "SELECT * FROM (SELECT 42) LIMIT 1"
+
+
+def test_select_42_ast_count():
+    q = Q("SELECT 42")
+    q_ct = q.count
+    assert q_ct == "SELECT COUNT(*) AS row_count FROM (SELECT 42)"
+
+
+def test_run_duckdb():
+    q = Q("SELECT 42 AS answer")
+    result = q.run(quiet=True)
     assert result.fetchall() == [(42,)]
-    assert q.list() == [(42,)]
+    assert q.list(header=False, quiet=True) == [(42,)]
+    assert q.list(header=True, quiet=True) == [("answer",), (42,)]
 
 
 def test_run_new_engine():

@@ -6,8 +6,10 @@ import string
 
 from abc import abstractmethod
 from autoregistry import Registry
+from time import time
 from typing import Any, Dict, Self, Union
 
+from .config import log
 
 PathType = Union[pathlib.Path, Any]
 StrPath = Union[str, os.PathLike[str], None]
@@ -41,6 +43,8 @@ class BaseQ(str):
             path_type (PathType, default=pathlib.Path): Path, S3Path, etc.
         """
 
+        if s == "" and not file and not kwargs.get("quiet"):
+            log.warning("Empty Q string")
         if file:
             _path = path_type(file)
             if not _path.exists():
@@ -60,6 +64,9 @@ class BaseQ(str):
         qstr = str.__new__(cls, s_formatted)
         qstr.refs = refs  # references used to create the Q string
         qstr.file = _path if file else None
+        qstr.start = 0
+        qstr.duration = 0.0
+        qstr.quiet = kwargs.get("quiet", False)
         try:
             qstr.ast = sqlglot.parse_one(s)
             qstr.errors = ""
@@ -76,23 +83,40 @@ class BaseQ(str):
             raise QStringError("Cannot transpile invalid SQL")
         return BaseQ(sqlglot.transpile(self.ast.sql(), read=read, write=write)[0])
 
+    def limit(self, n: int = 5) -> Self:
+        return sqlglot.subquery(self.ast).select("*").limit(n).q()
+
+    @property
+    def count(self) -> Self:
+        return sqlglot.subquery(self.ast).select("COUNT(*) AS row_count").q()
+
 
 class Q(BaseQ):
-    """Default qstring class with runner registry."""
+    """Default qstring class with timer runner registry."""
 
-    def run(self, engine=None):
+    def timer(func):
+        def wrapper(self, *args, **kwargs):
+            self.start = time()
+            result = func(self, *args, **kwargs)
+            self.duration = time() - self.start
+            return result
+
+        return wrapper
+
+    @timer
+    def run(self, engine=None, **kwargs):
         engine = engine or "duckdb"
-        return Engine[engine].run(self)
+        return Engine[engine].run(self, **kwargs)
 
-    def list(self, engine=None):
+    def list(self, engine=None, **kwargs):
         """Return the result as a list."""
         engine = engine or "duckdb"
-        return Engine[engine].list(self)
+        return Engine[engine].list(self, **kwargs)
 
-    def df(self, engine=None):
+    def df(self, engine=None, **kwargs):
         """Return the result as a DataFrame."""
         engine = engine or "duckdb"
-        return Engine[engine].df(self)
+        return Engine[engine].df(self, **kwargs)
 
 
 class Engine(Registry, suffix="Engine", overwrite=True):
@@ -118,18 +142,41 @@ class Engine(Registry, suffix="Engine", overwrite=True):
 
 
 class DuckDBEngine(Engine):
-    def run(q: Q):
-        return duckdb.sql(q)
+    def run(q: Q, **kwargs):
+        try:
+            relation = duckdb.sql(q)
+            q.shape = relation.shape
+            msg = f"{q.shape[0]} rows x {q.shape[1]} cols in {q.duration:.4f} sec"
+            if not q.quiet and not kwargs.get("quiet"):
+                log.info(msg)
+
+            return relation
+        except Exception as e:
+            log.error(f"error {e}:\n{q}")
+            return None
 
     @staticmethod
-    def list(q: Q):
-        return DuckDBEngine.run(q).fetchall()
+    def list(q: Q, header=True, **kwargs):
+        rel = DuckDBEngine.run(q, **kwargs)
+        result = ([tuple(rel.columns)] if header else []) + rel.fetchall()
+        return result
 
 
-class HFEngine(Engine):
+class AIEngine(Engine):
+    """Base class for AI engines."""
+
+    pass
+
+
+class MockAIEngine(AIEngine):
+    def run(q: Q, model=None):
+        return "SELECT\n42 AS select"
+
+
+class HFEngine(AIEngine):
     """Hugging Face OpenAI-compatible inference API engine."""
 
-    def run(q: Q, model="openai/gpt-oss-20b:fireworks-ai"):
+    def run(q: Q, model: str = "openai/gpt-oss-20b:fireworks-ai", **kwargs):
         from openai import OpenAI
 
         client = OpenAI(
@@ -137,8 +184,18 @@ class HFEngine(Engine):
         )
         response = client.responses.create(model=model, input=q)
         q.response = response
+        # log.debug(response.model_dump_json(indent=2))
+        input_tokens = response.usage.input_tokens
+        output_tokens = response.usage.output_tokens
+        log.debug(f"{input_tokens=}")
+        log.debug(f"{output_tokens=}")
         result = response.output[1].content[0].text
         return result
+
+    @staticmethod
+    def list(q: Q, model: str = "openai/gpt-oss-20b:fireworks-ai"):
+        result = HFEngine.run(q, model=model)
+        return [(q, result)]
 
 
 class QStringError(Exception):
