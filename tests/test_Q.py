@@ -105,3 +105,14 @@ def test_run_new_engine():
         q.list(engine="FunnyDuckDB")
     with pytest.raises(KeyError):
         q.run(engine="NonExistentEngine")
+
+
+@pytest.mark.skipif(
+    os.getenv("HF_API_KEY") is None,
+    reason="HF_API_KEY not set",
+)
+def test_ai_query():
+    q = Q(file=Path(__file__).parent / "test_prompt0.md", quite=True)
+    result = q.run(engine="hf", model="openai/gpt-oss-20b:fireworks-ai")
+    assert result.isdigit()
+    assert 1 <= int(result) <= 50

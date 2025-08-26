@@ -178,6 +178,7 @@ class HFEngine(AIEngine):
     """Hugging Face OpenAI-compatible inference API engine."""
 
     def run(q: Q, model: str = "openai/gpt-oss-20b:fireworks-ai", **kwargs):
+        """Run LLM query on HF.  Requires env var `HF_API_KEY`."""
         from openai import OpenAI
 
         client = OpenAI(

@@ -25,21 +25,21 @@ pip install qstrings[all]  # with ai and cli
 
 ## Why?
 
-What if the string itself was the * of the show?  Q-string is simply a string extra methods and attributes that unlock a few useful tricks.
+What if the string itself was the * of the show?  Q-strings are just strings carrying extra methods and attributes that unlock a few useful tricks.
 
 
-### 1. Composable queries and engines
+## Composable queries and engines
 
 SQL-oriented python libraries usually pass a string to a SQL engine.  If you routinely work with multiple databases, the variations in dialects and in implementation can pile up into something awkward.
 
-Q-strings help in two ways.  First, the queries are parsed using [sqlglot](https://github.com/tobymao/sqlglot):
+Q-strings help in two ways.  First, the queries are parsed into an AST (abstract syntax tree):
 
 ```python
 q = Q("SELECT 42 LIMIT 1")
 q.ast  # abstract syntax tree
 ```
 
-The `q.ast` carries a rich toolset, including transpiling to different dialects and swapping clauses are perhaps most useful:
+The parsing is performed with [sqlglot](https://github.com/tobymao/sqlglot) that offers a rich collection SQL tools.  Whenever you want to query different tables in different databases, it's easy to transpile and swap clauses:
 
 ```python
 q1 = Q("SELECT 42 FROM one_table")
@@ -48,7 +48,7 @@ assert q2 == "SELECT 42 FROM another_table"
 assert q.transpile(read="duckdb", write="tsql") == Q("SELECT TOP 1 42")
 ```
 
-The second helpful pattern is the template pattern for easily defining engines.  The default query engine is DuckDB, `q.run()` and `q.run(engine="duckdb")` are equivalent and will execute a DuckDB query.  It is obviously impossible to cover all possible scenarios; hard-coding the engine selection logic `if engine == "this": run_that()` only gets you so far.  To make another engine, subclass `Engine` and write the `run` method.  The new engine becomes available right away, at runtime, thanks to [autoregistry](https://github.com/BrianPugh/autoregistry).
+The second trick is the template pattern for easily defining engines.  The default query engine is DuckDB, `q.run()` and `q.run(engine="duckdb")` are equivalent and will execute a DuckDB query.  It is obviously impossible to cover all possible scenarios; hard-coding the engine selection logic `if engine == "this": run_that()` only gets you so far.  To make another engine, subclass `Engine` and write the `run` method.  The new engine becomes available right away, at runtime, thanks to [autoregistry](https://github.com/BrianPugh/autoregistry).
 
 ```python
 from qstrings import Engine, Q
@@ -87,8 +87,21 @@ class AthenaEngine(Engine):
 Q("SHOW CREATE TABLE db.table").run(engine="athena")
 ```
 
+## LLM queries
 
-### 2. Format strings with variables
+Q strings can do more than SQL!  The class `HFEngine` uses OpenAI-compatible API and secret `HF_API_KEY`.
+
+```python
+Q("Pick a number from 1 to 50").run(engine="hf", model="openai/gpt-oss-20b:fireworks-ai")
+# the answer is not 42!
+```
+
+Also, check out SQL+LLM query language [BlendSQL](https://github.com/parkervg/blendsql).
+
+
+## QoL features
+
+### 1. Format strings with variables
 
 ```python
 from qstrings import Q
@@ -126,7 +139,15 @@ def test_keys_given_in_env():"
     assert q.file is None
 ```
 
+### 2. Quick access to COUNT and LIMIT
 
+When working on a potentially long-running query, you may want to check the count first, or returning a few rows.
+
+```python
+from qstrings import Q
+Q("SELECT * FROM table").count.run()
+Q("SELECT * FROM table").limit(9).run()
+```
 
 ## CLI
 

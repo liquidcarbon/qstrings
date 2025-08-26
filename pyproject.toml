@@ -1,6 +1,6 @@
 [project]
 name = "qstrings"
-version = "0.2.2"
+version = "0.2.4"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,14 +14,18 @@ dependencies = [
 [project.scripts]
 q = "qstrings.cli:app"
 
-[dependency-groups]
-all = ["ai", "cli"]
+[project.optional-dependencies]
 ai = [
     "openai>=1.101.0",
 ]
 cli = [
-    "cyclopts>=3.22.5",
+    "cyclopts>=3.23.0",
 ]
+all = [
+    "qstrings[ai,cli]",
+]
+
+[dependency-groups]
 dev = [
     "pytest>=8.4.1",
 ]
@@ -29,3 +33,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+qstrings = { workspace = true }
