@@ -15,14 +15,17 @@ dependencies = [
 q = "qstrings.cli:app"
 
 [project.optional-dependencies]
+all = [
+    "qstrings[ai,api,cli]",
+]
 ai = [
     "openai>=1.101.0",
 ]
 cli = [
     "cyclopts>=3.23.0",
 ]
-all = [
-    "qstrings[ai,cli]",
+api = [
+    "robyn>=0.72.0",
 ]
 
 [dependency-groups]

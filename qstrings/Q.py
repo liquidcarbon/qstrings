@@ -6,7 +6,7 @@ import string
 
 from abc import abstractmethod
 from autoregistry import Registry
-from time import time
+from datetime import datetime
 from typing import Any, Dict, Self, Union
 
 from .config import log
@@ -63,6 +63,7 @@ class BaseQ(str):
         s_formatted = s.format(**refs)
 
         qstr = str.__new__(cls, s_formatted)
+        qstr.id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
         qstr.refs = refs  # references used to create the Q string
         qstr.file = _path if file else None
         qstr.start = 0
@@ -93,13 +94,14 @@ class BaseQ(str):
 
 
 class Q(BaseQ):
-    """Default qstring class with timer runner registry."""
+    """Default qstring class with timer and runner registry."""
 
     def timer(func):
         def wrapper(self, *args, **kwargs):
-            self.start = time()
+            t0 = int(f"{datetime.now():%y%m%d%H%M%S%f}")
             result = func(self, *args, **kwargs)
-            self.duration = time() - self.start
+            self.exec_id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+            self.duration = round((self.exec_id - t0) / 1e6, 4)
             return result
 
         return wrapper
