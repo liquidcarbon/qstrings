@@ -66,17 +66,17 @@ class BaseQ(str):
         qstr.id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
         qstr.refs = refs  # references used to create the Q string
         qstr.file = _path if file else None
-        qstr.start = 0
+        qstr.exec_id = 0
         qstr.duration = 0.0
-        qstr.quiet = kwargs.get("quiet", False)
+        qstr._quiet = kwargs.get("quiet", False)
         try:
-            qstr.ast = sqlglot.parse_one(s)
-            qstr.errors = ""
+            qstr.ast = sqlglot.parse_one(s_formatted)
+            qstr.ast_errors = ""
         except sqlglot.errors.ParseError as e:
             if kwargs.get("validate"):
                 raise e
             qstr.ast = None
-            qstr.errors = str(e)
+            qstr.ast_errors = str(e)
         return qstr
 
     def transpile(self, read: str = "duckdb", write: str = "tsql") -> Self:
@@ -91,6 +91,12 @@ class BaseQ(str):
     @property
     def count(self) -> Self:
         return sqlglot.subquery(self.ast).select("COUNT(*) AS row_count").q()
+
+    @property
+    def dict(self) -> Dict[str, Any]:
+        d = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+        d["refs"] = str(d["refs"]) if d["refs"] else None
+        return d
 
 
 class Q(BaseQ):
@@ -147,10 +153,10 @@ class Engine(Registry, suffix="Engine", overwrite=True):
 class DuckDBEngine(Engine):
     def run(q: Q, **kwargs):
         try:
-            relation = duckdb.sql(q)
+            relation = duckdb.sql(q, connection=None)
             q.shape = relation.shape
             msg = f"{q.shape[0]} rows x {q.shape[1]} cols in {q.duration:.4f} sec"
-            if not q.quiet and not kwargs.get("quiet"):
+            if not q._quiet and not kwargs.get("quiet"):
                 log.info(msg)
 
             return relation
@@ -191,8 +197,9 @@ class HFEngine(AIEngine):
         # log.debug(response.model_dump_json(indent=2))
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
-        log.debug(f"{input_tokens=}")
-        log.debug(f"{output_tokens=}")
+        if not q._quiet and not kwargs.get("quiet"):
+            log.debug(f"{input_tokens=}")
+            log.debug(f"{output_tokens=}")
         result = response.output[1].content[0].text
         return result
 

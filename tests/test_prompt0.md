@@ -1,1 +1,1 @@
-Pick a number from 1 to 50
+Pick a number from 1 to 50, return only the number.

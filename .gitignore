@@ -11,3 +11,6 @@ wheels/
 # Virtual environments
 .venv
 uv.lock
+
+# dev notebooks
+devmo.py

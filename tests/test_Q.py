@@ -10,7 +10,7 @@ def test_empty_string():
     q = Q("", quiet=True)
     assert q == ""
     assert q.ast is None
-    assert q.errors
+    assert q.ast_errors
 
 
 def test_keys_missing():
@@ -44,13 +44,13 @@ def test_from_file():
 
 def test_parse_error():
     q = Q("SELE 42")
-    assert q.errors
+    assert q.ast_errors
     with pytest.raises(ParseError):
         _ = Q("SELE 42", validate=True)
 
 
 def test_select_42_ast_transpile():
-    q = Q("SELECT 42 LIMIT 1")
+    q = Q("SELECT 42 LIMIT {n}", n=1)
     assert q.ast.sql() == "SELECT 42 LIMIT 1"
     assert q.transpile(read="duckdb", write="tsql") == Q("SELECT TOP 1 42")
 
@@ -112,7 +112,8 @@ def test_run_new_engine():
     reason="HF_API_KEY not set",
 )
 def test_ai_query():
-    q = Q(file=Path(__file__).parent / "test_prompt0.md", quite=True)
+    q = Q(file=Path(__file__).parent / "test_prompt0.md", quiet=True)
     result = q.run(engine="hf", model="openai/gpt-oss-20b:fireworks-ai")
+    print(result)
     assert result.isdigit()
     assert 1 <= int(result) <= 50
