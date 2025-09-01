@@ -5,6 +5,9 @@ from pathlib import Path
 from loguru import logger as log
 
 
+HISTORY = Path(__file__).parent / "history.duckdb"
+
+
 def get_version():
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
     if not pyproject_path.exists():
@@ -24,15 +27,13 @@ def get_version():
 __version__ = get_version()
 
 
-def log_format(record):
+def log_format(record: dict):
     module_names = record["name"].split(".")
     module_names[0] += f"[{__version__}]"
     record["name"] = ".".join(module_names)
-    msg = (
-        "/* {time:YYMMDD@HH:mm:ss.SSS}|{level}|{name}.{function}:{line}|{message} */\n"
-    )
+    msg = "/* {time:YYMMDD@HH:mm:ss.SSS}|{level}|{name}:{line}|{message} */\n"
     return msg
 
 
 log.remove()
-log.add(sys.stderr, format=log_format)
+log.add(sys.stdout, format=log_format)

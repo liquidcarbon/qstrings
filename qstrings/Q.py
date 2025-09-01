@@ -28,6 +28,8 @@ def parse_keys(s: str) -> set[str]:
 class BaseQ(str):
     """Base Q-string class."""
 
+    __file__ = __file__
+
     def __new__(
         cls,
         s: str = "",
@@ -94,28 +96,43 @@ class BaseQ(str):
 
     @property
     def dict(self) -> Dict[str, Any]:
-        d = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        d["refs"] = str(d["refs"]) if d["refs"] else None
+        d = {k: str(v) for k, v in self.__dict__.items() if not k.startswith("_")}
         return d
 
 
 class Q(BaseQ):
     """Default qstring class with timer and runner registry."""
 
-    def timer(func):
-        def wrapper(self, *args, **kwargs):
+    def timer_logger(func):
+        def logging_wrapper(self, *args, **kwargs):
+            quiet = getattr(self, "_quiet", False) or kwargs.get("quiet", False)
             t0 = int(f"{datetime.now():%y%m%d%H%M%S%f}")
-            result = func(self, *args, **kwargs)
+
             self.exec_id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+            try:
+                result = func(self, *args, **kwargs)
+            except Exception as e:
+                if not quiet:
+                    log.error(f"Error: {e}")
+                raise e
+
             self.duration = round((self.exec_id - t0) / 1e6, 4)
+            _r, _c = getattr(self, "shape", (0, 0))
+            msg = (
+                f"{self._engine_cls}: {_r} rows x {_c} cols in {self.duration:.4f} sec"
+            )
+            if not quiet:
+                log.info(msg)
             return result
 
-        return wrapper
+        return logging_wrapper
 
-    @timer
+    @timer_logger
     def run(self, engine=None, **kwargs):
         engine = engine or "duckdb"
-        return Engine[engine].run(self, **kwargs)
+        cls = Engine[engine]
+        self._engine_cls = cls.__name__
+        return cls.run(self, **kwargs)
 
     def list(self, engine=None, **kwargs):
         """Return the result as a list."""
@@ -151,22 +168,25 @@ class Engine(Registry, suffix="Engine", overwrite=True):
 
 
 class DuckDBEngine(Engine):
-    def run(q: Q, **kwargs):
-        try:
-            relation = duckdb.sql(q, connection=None)
-            q.shape = relation.shape
-            msg = f"{q.shape[0]} rows x {q.shape[1]} cols in {q.duration:.4f} sec"
-            if not q._quiet and not kwargs.get("quiet"):
-                log.info(msg)
+    """DuckDB engine.  By default runs using in-memory database."""
 
-            return relation
+    def run(q: Q, db: StrPath = "", **kwargs) -> duckdb.DuckDBPyRelation:
+        q.con = duckdb.connect(database=db, read_only=kwargs.get("read_only", False))
+        # connection to remain attached to q, otherwise closed and gc'd
+        try:
+            relation = q.con.sql(q)
+            q.shape = list(relation.shape)
         except Exception as e:
-            log.error(f"error {e}:\n{q}")
-            return None
+            relation = q.con.sql(f"SELECT '{q}' AS q, '{e}' AS r")
+        return relation
 
     @staticmethod
-    def list(q: Q, header=True, **kwargs):
-        rel = DuckDBEngine.run(q, **kwargs)
+    def df(q: Q, db: StrPath = "", **kwargs):
+        return DuckDBEngine.run(q, db, **kwargs).df()
+
+    @staticmethod
+    def list(q: Q, db: StrPath = "", header=True, **kwargs):
+        rel = DuckDBEngine.run(q, db, **kwargs)
         result = ([tuple(rel.columns)] if header else []) + rel.fetchall()
         return result
 

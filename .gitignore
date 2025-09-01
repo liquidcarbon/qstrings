@@ -12,5 +12,6 @@ wheels/
 .venv
 uv.lock
 
-# dev notebooks
+# dev files
 devmo.py
+history.duckdb

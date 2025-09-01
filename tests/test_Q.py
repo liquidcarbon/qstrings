@@ -78,12 +78,28 @@ def test_select_42_ast_count():
     assert q_ct == "SELECT COUNT(*) AS row_count FROM (SELECT 42)"
 
 
+def test_run_duckdb_error():
+    q = Q("THIS WILL FAIL")
+    result = q.run(quiet=True)
+    assert 'syntax error at or near "THIS"' in str(result)
+
+
 def test_run_duckdb():
     q = Q("SELECT 42 AS answer")
     result = q.run(quiet=True)
     assert result.fetchall() == [(42,)]
     assert q.list(header=False, quiet=True) == [(42,)]
     assert q.list(header=True, quiet=True) == [("answer",), (42,)]
+
+
+def test_run_duckdb_connect_to_tmpdb():
+    tmpdb = Path(__file__).parent / "tmp.duckdb"
+    q = Q("SELECT 42 AS answer")
+    result = q.run(db=tmpdb, quiet=True)
+    assert result.fetchall() == [(42,)]
+    assert q.list(header=False, quiet=True) == [(42,)]
+    assert q.list(header=True, quiet=True) == [("answer",), (42,)]
+    tmpdb.unlink(missing_ok=True)
 
 
 def test_run_new_engine():
@@ -96,7 +112,7 @@ def test_run_new_engine():
         def df(q: Q):
             return "funny", "df"
 
-    q = Q("SELECT 42")
+    q = Q("SELECT 42", quiet=True)
     result, funny = q.run(engine="FunnyDuckDB")
     assert result.fetchall() == [(42,)]
     assert funny == "lol, running a funny query"

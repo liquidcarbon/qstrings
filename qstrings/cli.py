@@ -3,16 +3,19 @@ from typing import Annotated, Literal, Optional
 import platform
 import sys
 
-from .config import log
+from .config import log, log_format
 from .Q import Q
+
 
 if platform.system() == "Windows":
     STDOUT = "CON"
 else:
     STDOUT = "/dev/stdout"
 
+log.remove()
+log.add(sys.stderr, format=log_format)
 
-# log.debug("Q-strings CLI")
+
 app = App(help="Query anything!")
 
 
@@ -45,13 +48,16 @@ def run_query(
     only_count: Annotated[
         bool, Parameter(name=["-C", "--COUNT"], help="Return row count only")
     ] = False,
+    quiet: Annotated[
+        bool, Parameter(name=["-q", "--quiet"], help="Suppress logs")
+    ] = False,
     **kwargs,
 ):
     # log.debug(f"{query=} {file=} {engine=} {model=} {output_format=}")
     if not query and not file:
         query = sys.stdin.read()
     query_with_newlines = query.replace(r"\n", "\n")
-    q = Q(query_with_newlines, file=file, **kwargs)
+    q = Q(query_with_newlines, file=file, quiet=quiet, **kwargs)
     if limit:
         q = q.limit(limit)
     if only_count:
