@@ -99,6 +99,9 @@ class BaseQ(str):
         d = {k: str(v) for k, v in self.__dict__.items() if not k.startswith("_")}
         return d
 
+    # def __del__():
+    #     pass
+
 
 class Q(BaseQ):
     """Default qstring class with timer and runner registry."""
@@ -170,14 +173,18 @@ class Engine(Registry, suffix="Engine", overwrite=True):
 class DuckDBEngine(Engine):
     """DuckDB engine.  By default runs using in-memory database."""
 
+    con: duckdb.DuckDBPyConnection = None
+
     def run(q: Q, db: StrPath = "", **kwargs) -> duckdb.DuckDBPyRelation:
-        q.con = duckdb.connect(database=db, read_only=kwargs.get("read_only", False))
-        # connection to remain attached to q, otherwise closed and gc'd
+        DuckDBEngine.con = duckdb.connect(
+            database=db, read_only=kwargs.get("read_only", False)
+        )
+        # connection to remain attached to something, otherwise closed and gc'd
         try:
-            relation = q.con.sql(q)
+            relation = DuckDBEngine.con.sql(q)
             q.shape = list(relation.shape)
         except Exception as e:
-            relation = q.con.sql(f"SELECT '{q}' AS q, '{e}' AS r")
+            relation = duckdb.sql(f"SELECT '{q}' AS q, '{e}' AS r")
         return relation
 
     @staticmethod

@@ -92,7 +92,12 @@ def test_run_duckdb():
     assert q.list(header=True, quiet=True) == [("answer",), (42,)]
 
 
+def test_run_duckdb_fails_on_closed_connection():
+    Q("SELECT 42 AS answer", quiet=True).run().fetchall() == [(42,)]
+
+
 def test_run_duckdb_connect_to_tmpdb():
+    Q("SELECT 42 AS answer", quiet=True).run().fetchall() == [(42,)]
     tmpdb = Path(__file__).parent / "tmp.duckdb"
     q = Q("SELECT 42 AS answer")
     result = q.run(db=tmpdb, quiet=True)
