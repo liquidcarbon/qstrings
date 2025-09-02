@@ -68,6 +68,7 @@ class BaseQ(str):
         qstr.id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
         qstr.refs = refs  # references used to create the Q string
         qstr.file = _path if file else None
+        qstr.alias = kwargs.get("alias")
         qstr.exec_id = 0
         qstr.duration = 0.0
         qstr._quiet = kwargs.get("quiet", False)

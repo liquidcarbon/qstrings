@@ -42,6 +42,11 @@ def test_from_file():
     assert q.file and q.file.name == "test_format.sql"
 
 
+def test_alias():
+    q = Q("SELECT 42 AS answer", alias="blah")
+    assert q.alias == "blah"
+
+
 def test_parse_error():
     q = Q("SELE 42")
     assert q.ast_errors
