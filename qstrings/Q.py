@@ -97,15 +97,31 @@ class BaseQ(str):
 
     @property
     def dict(self) -> Dict[str, Any]:
-        d = {k: str(v) for k, v in self.__dict__.items() if not k.startswith("_")}
+        d = {}
+        for k, v in self.__dict__.items():
+            if not k.startswith("_"):
+                if isinstance(v, (int, float)) or v is None:
+                    d[k] = v
+                else:
+                    d[k] = str(v)
         return d
 
-    # def __del__():
-    #     pass
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any], **kwargs) -> Self:
+        fields = []
+        for k, v in d.items():
+            if isinstance(v, (int, float)):
+                fields.append(f"{v} AS {k}")
+            elif v is None:
+                fields.append(f"NULL AS {k}")
+            else:
+                fields.append(f"'{v}' AS {k}")
+        instance = cls("SELECT " + ", ".join(fields), **kwargs)
+        return instance
 
 
 class Q(BaseQ):
-    """Default qstring class with timer and runner registry."""
+    """Default qstring class with timer, logger, history, and runner registry."""
 
     def timer_logger(func):
         def logging_wrapper(self, *args, **kwargs):
@@ -127,6 +143,7 @@ class Q(BaseQ):
             )
             if not quiet:
                 log.info(msg)
+            self.save()
             return result
 
         return logging_wrapper
@@ -147,6 +164,10 @@ class Q(BaseQ):
         """Return the result as a DataFrame."""
         engine = engine or "duckdb"
         return Engine[engine].df(self, **kwargs)
+
+    def save(self):
+        # log.info(self.dict)
+        pass
 
 
 class Engine(Registry, suffix="Engine", overwrite=True):

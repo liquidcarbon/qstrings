@@ -101,6 +101,16 @@ Also, check out SQL+LLM query language [BlendSQL](https://github.com/parkervg/bl
 
 ## QoL features
 
+### 0. History
+
+Qstrings maintains query history, which is an on-disk DuckDB database (default: `config.HISTORY=qstrings/history.duckdb`).
+
+
+
+> [!TIP]
+> One may wish to switch to [MotherDuck](https://motherduck.com/product/pricing/) to have the query history from all clients in one place.
+
+
 ### 1. Format strings with variables
 
 ```python
@@ -139,7 +149,10 @@ def test_keys_given_in_env():"
     assert q.file is None
 ```
 
-### 2. Quick access to COUNT and LIMIT
+### 2. Alias for queries
+
+
+### 3. Quick access to COUNT and LIMIT
 
 When working on a potentially long-running query, you may want to check the count first, or returning a few rows.
 

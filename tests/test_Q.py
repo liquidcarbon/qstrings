@@ -83,6 +83,14 @@ def test_select_42_ast_count():
     assert q_ct == "SELECT COUNT(*) AS row_count FROM (SELECT 42)"
 
 
+def test_from_dict():
+    d = {"id": 123, "ast": "SELECT 42"}
+    # this fails:
+    # d = {"id": 123, "ast": "SELECT 42", "refs": '{"foo": "bar"}'}
+    q = Q.from_dict(d)
+    assert q == """SELECT 123 AS id, 'SELECT 42' AS ast"""
+
+
 def test_run_duckdb_error():
     q = Q("THIS WILL FAIL")
     result = q.run(quiet=True)

@@ -34,6 +34,12 @@ def run_query(
     model: Annotated[
         Optional[str], Parameter(name=["-m", "--model"], help="HuggingFace model")
     ] = "openai/gpt-oss-20b:fireworks-ai",
+    limit: Annotated[
+        Optional[int], Parameter(name=["-L", "--LIMIT"], help="Limit rows")
+    ] = None,
+    only_count: Annotated[
+        bool, Parameter(name=["-C", "--COUNT"], help="Return row count only")
+    ] = False,
     output_format: Annotated[
         Literal["engine", "csv", "list", "line"],
         Parameter(
@@ -41,12 +47,6 @@ def run_query(
             help="Output format (defaults to whatever `Engine.run()` returns)",
         ),
     ] = "engine",
-    limit: Annotated[
-        Optional[int], Parameter(name=["-L", "--LIMIT"], help="Limit rows")
-    ] = None,
-    only_count: Annotated[
-        bool, Parameter(name=["-C", "--COUNT"], help="Return row count only")
-    ] = False,
     quiet: Annotated[
         bool, Parameter(name=["-q", "--quiet"], help="Suppress logs")
     ] = False,
