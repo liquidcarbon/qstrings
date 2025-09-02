@@ -1,9 +1,8 @@
 import importlib
+import logging
 import sys
 import tomllib
 from pathlib import Path
-from loguru import logger as log
-
 
 HISTORY = Path(__file__).parent / "history.duckdb"
 
@@ -27,13 +26,28 @@ def get_version():
 __version__ = get_version()
 
 
-def log_format(record: dict):
-    module_names = record["name"].split(".")
-    module_names[0] += f"[{__version__}]"
-    record["name"] = ".".join(module_names)
-    msg = "/* {time:YYMMDD@HH:mm:ss.SSS}|{level}|{name}:{line}|{message} */\n"
-    return msg
+class VersionedFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        parts = record.name.split(".")
+        if "[" not in parts[0]:
+            parts[0] += f"[{__version__}]"
+        record.name = ".".join(parts)
+        return super().format(record)
 
 
-log.remove()
-log.add(sys.stdout, format=log_format)
+def setup_logger(name: str = "qstrings", sink=sys.stdout, level=logging.DEBUG):
+    # to disable: logging.getLogger("qstrings").setLevel(logging.CRITICAL + 1)
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler(sink)
+        fmt = "/* %(asctime)s|%(levelname)s|%(name)s:%(lineno)d|%(message)s */"
+        datefmt = "%y%m%d@%H:%M:%S"
+        formatter = VersionedFormatter(fmt=fmt, datefmt=datefmt)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+
+    return logger
+
+
+log = setup_logger()

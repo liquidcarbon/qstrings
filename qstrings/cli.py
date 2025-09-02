@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Optional
 import platform
 import sys
 
-from .config import log, log_format
+from .config import setup_logger
 from .Q import Q
 
 
@@ -12,8 +12,7 @@ if platform.system() == "Windows":
 else:
     STDOUT = "/dev/stdout"
 
-log.remove()
-log.add(sys.stderr, format=log_format)
+log = setup_logger(sink=sys.stderr)
 
 
 app = App(help="Query anything!")
