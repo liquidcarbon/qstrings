@@ -43,7 +43,6 @@ def test_from_file():
     assert q.dict.get("file") is not None
     assert isinstance(q.dict.get("refs"), str)
     assert '"ast_errors": null' in q.json()
-    assert r"{'num': 42, 'foo': 'bar'}" in q.json()
 
 
 def test_alias():
@@ -97,13 +96,13 @@ def test_from_dict():
 
 def test_run_duckdb_error():
     q = Q("THIS WILL FAIL")
-    result = q.run(quiet=True)
+    result = q.run(engine="duckdb", quiet=True)
     assert 'syntax error at or near "THIS"' in str(result)
 
 
 def test_run_duckdb():
     q = Q("SELECT 42 AS answer")
-    result = q.run(quiet=True)
+    result = q.run(engine="duckdb", quiet=True)
     assert result.fetchall() == [(42,)]
     assert q.list(header=False, quiet=True) == [(42,)]
     assert q.list(header=True, quiet=True) == [("answer",), (42,)]

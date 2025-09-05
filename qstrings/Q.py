@@ -8,7 +8,8 @@ import string
 from abc import abstractmethod
 from autoregistry import Registry
 from datetime import datetime
-from typing import Any, Dict, Self, Union
+from io import StringIO
+from typing import Any, Dict, Literal, Self, Union, overload
 
 from .config import log
 
@@ -127,33 +128,16 @@ class BaseQ(str):
 class Q(BaseQ):
     """Default qstring class with timer, logger, history, and runner registry."""
 
-    def timer_logger(func):
-        def logging_wrapper(self, *args, **kwargs):
-            quiet = getattr(self, "_quiet", False) or kwargs.get("quiet", False)
-            t0 = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+    @overload
+    def run(self, engine: Literal["duckdb"], db: StrPath = "", **kwargs):
+        """Quack!"""
+        ...
 
-            self.exec_id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
-            try:
-                result = func(self, *args, **kwargs)
-            except Exception as e:
-                if not quiet:
-                    log.error(f"Error: {e}")
-                raise e
+    @overload
+    def run(self, engine: Literal["hf"], **kwargs): ...
 
-            self.duration = round((self.exec_id - t0) / 1e6, 4)
-            _r, _c = getattr(self, "shape", (0, 0))
-            msg = (
-                f"{self._engine_cls}: {_r} rows x {_c} cols in {self.duration:.4f} sec"
-            )
-            if not quiet:
-                log.info(msg)
-            self.save()
-            return result
-
-        return logging_wrapper
-
-    @timer_logger
     def run(self, engine=None, **kwargs):
+        """Run with chosen Engine."""
         engine = engine or "duckdb"
         cls = Engine[engine]
         self._engine_cls = cls.__name__
@@ -195,13 +179,40 @@ class Engine(Registry, suffix="Engine", overwrite=True):
     def df(q: Q):
         raise NotImplementedError
 
+    def timer_logger(func):
+        def logging_wrapper(self, *args, **kwargs):
+            quiet = getattr(self, "_quiet", False) or kwargs.get("quiet", False)
+            t0 = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+
+            self.exec_id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+            try:
+                result = func(self, *args, **kwargs)
+            except Exception as e:
+                if not quiet:
+                    log.error(f"Error: {e}")
+                raise e
+
+            self.duration = round((self.exec_id - t0) / 1e6, 4)
+            _r, _c = getattr(self, "shape", (0, 0))
+            msg = (
+                f"{self._engine_cls}: {_r} rows x {_c} cols in {self.duration:.4f} sec"
+            )
+            if not quiet:
+                log.info(msg)
+
+            return result
+
+        return logging_wrapper
+
 
 class DuckDBEngine(Engine):
     """DuckDB engine.  By default runs using in-memory database."""
 
     con: duckdb.DuckDBPyConnection = None
 
+    @Engine.timer_logger
     def run(q: Q, db: StrPath = "", **kwargs) -> duckdb.DuckDBPyRelation:
+        """Run with DuckDB."""
         DuckDBEngine.con = duckdb.connect(
             database=db, read_only=kwargs.get("read_only", False)
         )
@@ -238,6 +249,7 @@ class MockAIEngine(AIEngine):
 class HFEngine(AIEngine):
     """Hugging Face OpenAI-compatible inference API engine."""
 
+    @Engine.timer_logger
     def run(q: Q, model: str = "openai/gpt-oss-20b:fireworks-ai", **kwargs):
         """Run LLM query on HF.  Requires env var `HF_API_KEY`."""
         from openai import OpenAI

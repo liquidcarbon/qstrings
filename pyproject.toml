@@ -1,12 +1,13 @@
 [project]
 name = "qstrings"
-version = "0.3.1"
+version = "0.3.2"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "autoregistry>=1.1.2",
     "duckdb>=1.3",
+    "fsspec>=2025.9.0",
     "sqlglot>=27.6.0",
 ]
 
