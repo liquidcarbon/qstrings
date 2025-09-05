@@ -40,6 +40,10 @@ def test_from_file():
     assert q == "SELECT 42 AS answer, 'bar' AS foo  -- { ignore }"
     assert q.refs == {"num": 42, "foo": "bar"}
     assert q.file and q.file.name == "test_format.sql"
+    assert q.dict.get("file") is not None
+    assert isinstance(q.dict.get("refs"), str)
+    assert '"ast_errors": null' in q.json()
+    assert r"{'num': 42, 'foo': 'bar'}" in q.json()
 
 
 def test_alias():

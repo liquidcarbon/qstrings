@@ -1,4 +1,5 @@
 import duckdb
+import json
 import pathlib
 import os
 import sqlglot
@@ -74,7 +75,7 @@ class BaseQ(str):
         qstr._quiet = kwargs.get("quiet", False)
         try:
             qstr.ast = sqlglot.parse_one(s_formatted)
-            qstr.ast_errors = ""
+            qstr.ast_errors = None
         except sqlglot.errors.ParseError as e:
             if kwargs.get("validate"):
                 raise e
@@ -105,6 +106,9 @@ class BaseQ(str):
                 else:
                     d[k] = str(v)
         return d
+
+    def json(self, indent: int | None = None) -> str:
+        return json.dumps(self.dict, indent=indent, default=str)
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any], **kwargs) -> Self:
