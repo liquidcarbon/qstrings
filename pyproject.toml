@@ -1,6 +1,6 @@
 [project]
 name = "qstrings"
-version = "0.3.2"
+version = "0.4.0"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -98,17 +98,19 @@ def test_run_duckdb_error():
     q = Q("THIS WILL FAIL")
     result = q.run(engine="duckdb", quiet=True)
     assert 'syntax error at or near "THIS"' in str(result)
+    assert q.rows == q.cols == 0
 
 
 def test_run_duckdb():
-    q = Q("SELECT 42 AS answer")
+    q = Q("SELECT 42 AS {a}", a="answer")
     result = q.run(engine="duckdb", quiet=True)
     assert result.fetchall() == [(42,)]
     assert q.list(header=False, quiet=True) == [(42,)]
     assert q.list(header=True, quiet=True) == [("answer",), (42,)]
+    assert q.rows == q.cols == 1
 
 
-def test_run_duckdb_fails_on_closed_connection():
+def test_run_duckdb_used_to_fail_on_closed_connection():
     Q("SELECT 42 AS answer", quiet=True).run().fetchall() == [(42,)]
 
 

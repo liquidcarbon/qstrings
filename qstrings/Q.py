@@ -11,7 +11,7 @@ from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, Literal, Self, Union, overload
 
-from .config import log
+from .config import HISTORY, log
 
 PathType = Union[pathlib.Path, Any]
 StrPath = Union[str, os.PathLike[str], None]
@@ -68,12 +68,11 @@ class BaseQ(str):
 
         qstr = str.__new__(cls, s_formatted)
         qstr.id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+        qstr.template = s
         qstr.refs = refs  # references used to create the Q string
         qstr.file = _path if file else None
         qstr.alias = kwargs.get("alias")
-        qstr.exec_id = 0
-        qstr.duration = 0.0
-        qstr._quiet = kwargs.get("quiet", False)
+
         try:
             qstr.ast = sqlglot.parse_one(s_formatted)
             qstr.ast_errors = None
@@ -82,6 +81,14 @@ class BaseQ(str):
                 raise e
             qstr.ast = None
             qstr.ast_errors = str(e)
+
+        qstr.exec_id = 0
+        qstr.duration = 0.0
+        qstr.rows = 0
+        qstr.cols = 0
+        qstr.input_tokens = 0
+        qstr.output_tokens = 0
+        qstr._quiet = kwargs.get("quiet", False)
         return qstr
 
     def transpile(self, read: str = "duckdb", write: str = "tsql") -> Self:
@@ -101,9 +108,14 @@ class BaseQ(str):
     def dict(self) -> Dict[str, Any]:
         d = {}
         for k, v in self.__dict__.items():
+            if k == "ast":
+                d["qstr"] = str(self)
+                continue
             if not k.startswith("_"):
                 if isinstance(v, (int, float)) or v is None:
                     d[k] = v
+                # elif v is None:
+                #     d[k] = ""
                 else:
                     d[k] = str(v)
         return d
@@ -154,8 +166,32 @@ class Q(BaseQ):
         return Engine[engine].df(self, **kwargs)
 
     def save(self):
-        # log.info(self.dict)
-        pass
+        with duckdb.connect(HISTORY) as con:
+            last_q = con.read_json(
+                StringIO(self.json()),
+                # must spell out types or NULLs forced to JSON
+                columns={
+                    "id": "BIGINT",
+                    "template": "VARCHAR",
+                    "refs": "VARCHAR",
+                    "file": "VARCHAR",
+                    "alias": "VARCHAR",
+                    "qstr": "VARCHAR",
+                    "ast_errors": "VARCHAR",
+                    "exec_id": "BIGINT",
+                    "duration": "DOUBLE",
+                    "rows": "INT",
+                    "cols": "INT",
+                    "input_tokens": "INT",
+                    "output_tokens": "INT",
+                },
+            )
+            con.register("last_q", last_q)
+            has_tables = any("q" in t for t in con.sql("SHOW TABLES").fetchall())
+            if not has_tables:
+                con.sql("CREATE TABLE IF NOT EXISTS q AS FROM last_q")
+            else:
+                con.sql("INSERT INTO q FROM last_q")
 
 
 class Engine(Registry, suffix="Engine", overwrite=True):
@@ -182,8 +218,6 @@ class Engine(Registry, suffix="Engine", overwrite=True):
     def timer_logger(func):
         def logging_wrapper(self, *args, **kwargs):
             quiet = getattr(self, "_quiet", False) or kwargs.get("quiet", False)
-            t0 = int(f"{datetime.now():%y%m%d%H%M%S%f}")
-
             self.exec_id = int(f"{datetime.now():%y%m%d%H%M%S%f}")
             try:
                 result = func(self, *args, **kwargs)
@@ -191,14 +225,22 @@ class Engine(Registry, suffix="Engine", overwrite=True):
                 if not quiet:
                     log.error(f"Error: {e}")
                 raise e
+            t_done = int(f"{datetime.now():%y%m%d%H%M%S%f}")
+            self.duration = round((t_done - self.exec_id) / 1e6, 4)
 
-            self.duration = round((self.exec_id - t0) / 1e6, 4)
-            _r, _c = getattr(self, "shape", (0, 0))
-            msg = (
-                f"{self._engine_cls}: {_r} rows x {_c} cols in {self.duration:.4f} sec"
-            )
+            if self.rows + self.cols > 0:
+                _stats = f"{self.rows} rows x {self.cols} cols"
+            elif self.input_tokens + self.output_tokens > 0:
+                _it, _ot = self.input_tokens, self.output_tokens
+                _stats = f"{_it} input x {_ot} output tokens"
+            else:
+                _stats = "no results"
+            msg = f"{self._engine_cls}: {_stats} in {self.duration:.4f} sec"
             if not quiet:
                 log.info(msg)
+
+            if kwargs.get("save", True):
+                self.save()
 
             return result
 
@@ -219,7 +261,7 @@ class DuckDBEngine(Engine):
         # connection to remain attached to something, otherwise closed and gc'd
         try:
             relation = DuckDBEngine.con.sql(q)
-            q.shape = list(relation.shape)
+            q.rows, q.cols = relation.shape
         except Exception as e:
             relation = duckdb.sql(f"SELECT '{q}' AS q, '{e}' AS r")
         return relation
@@ -257,15 +299,13 @@ class HFEngine(AIEngine):
         client = OpenAI(
             base_url="https://router.huggingface.co/v1", api_key=os.getenv("HF_API_KEY")
         )
-        response = client.responses.create(model=model, input=q)
-        q.response = response
-        # log.debug(response.model_dump_json(indent=2))
-        input_tokens = response.usage.input_tokens
-        output_tokens = response.usage.output_tokens
-        if not q._quiet and not kwargs.get("quiet"):
-            log.debug(f"{input_tokens=}")
-            log.debug(f"{output_tokens=}")
-        result = response.output[1].content[0].text
+        q._response = client.responses.create(model=model, input=q)
+        q.input_tokens = q._response.usage.input_tokens
+        q.output_tokens = q._response.usage.output_tokens
+        # if not q._quiet and not kwargs.get("quiet"):
+        #     log.debug(f"{q.input_tokens=}")
+        #     log.debug(f"{q.output_tokens=}")
+        result = q._response.output[1].content[0].text
         return result
 
     @staticmethod
