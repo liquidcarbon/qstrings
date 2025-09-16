@@ -45,11 +45,6 @@ def test_from_file():
     assert '"ast_errors": null' in q.json()
 
 
-def test_alias():
-    q = Q("SELECT 42 AS answer", alias="blah")
-    assert q.alias == "blah"
-
-
 def test_parse_error():
     q = Q("SELE 42")
     assert q.ast_errors
@@ -123,6 +118,16 @@ def test_run_duckdb_connect_to_tmpdb():
     assert q.list(header=False, quiet=True) == [(42,)]
     assert q.list(header=True, quiet=True) == [("answer",), (42,)]
     tmpdb.unlink(missing_ok=True)
+
+
+def test_history_alias():
+    q0 = Q("SELECT 42 AS blah", alias="blah")
+    _ = q0.run()
+    assert q0.alias == "blah"
+    q1 = Q.from_history(exec_id=q0.exec_id)
+    assert q1 == "SELECT 42 AS blah"
+    # q2 = Q.from_history(alias="blah")
+    # assert q2 == "SELECT 42 AS blah"
 
 
 def test_run_new_engine():

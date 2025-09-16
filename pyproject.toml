@@ -1,6 +1,6 @@
 [project]
 name = "qstrings"
-version = "0.4.0"
+version = "0.4.1"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 q = "qstrings.cli:app"
+qh = "qstrings.cli:app_history"
 
 [project.optional-dependencies]
 all = [

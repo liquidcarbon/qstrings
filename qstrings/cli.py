@@ -54,7 +54,22 @@ def run_query(
 ):
     # log.debug(f"{query=} {file=} {engine=} {model=} {output_format=}")
     if not query and not file:
-        query = sys.stdin.read()
+        if sys.stdin.isatty():  # interactive
+            print("See `q --help` or enter query below (end with `;`):")
+            lines = []
+            while True:
+                try:
+                    line = input()
+                except EOFError:
+                    return  # user hit Ctrl-D
+                lines.append(line)
+                if line.strip().endswith(";"):
+                    break
+            query = "\n".join(lines)
+        else:
+            print("Enter query (end with EOF / Ctrl-D):")
+            query = sys.stdin.read()
+
     query_with_newlines = query.replace(r"\n", "\n")
     q = Q(query_with_newlines, file=file, quiet=quiet, **kwargs)
     if limit:
@@ -78,6 +93,14 @@ def run_query(
         )
     sys.stdout.write(str(res))
     return
+
+
+app.command(app_history := App(name="h", help="Run query from history"))
+
+
+@app_history.command(name="h", help="Run query from history")
+def query_from_history():
+    print("hi")
 
 
 if __name__ == "__main__":

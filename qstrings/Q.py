@@ -114,8 +114,6 @@ class BaseQ(str):
             if not k.startswith("_"):
                 if isinstance(v, (int, float)) or v is None:
                     d[k] = v
-                # elif v is None:
-                #     d[k] = ""
                 else:
                     d[k] = str(v)
         return d
@@ -135,6 +133,15 @@ class BaseQ(str):
                 fields.append(f"'{v}' AS {k}")
         instance = cls("SELECT " + ", ".join(fields), **kwargs)
         return instance
+
+    @classmethod
+    def from_history(cls, exec_id: int | None = None, alias: str | None = None) -> Self:
+        with duckdb.connect(HISTORY) as con:
+            rel = con.query(f"SELECT qstr FROM q WHERE exec_id={exec_id}")
+            qstr = rel.fetchall()[0][0]
+            if not qstr:
+                raise QStringError(f"No history found for {exec_id=}, {alias=}")
+            return cls(qstr)
 
 
 class Q(BaseQ):
@@ -158,7 +165,9 @@ class Q(BaseQ):
     def list(self, engine=None, **kwargs):
         """Return the result as a list."""
         engine = engine or "duckdb"
-        return Engine[engine].list(self, **kwargs)
+        cls = Engine[engine]
+        self._engine_cls = cls.__name__
+        return cls.list(self, **kwargs)
 
     def df(self, engine=None, **kwargs):
         """Return the result as a DataFrame."""
