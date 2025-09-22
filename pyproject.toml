@@ -1,6 +1,6 @@
 [project]
 name = "qstrings"
-version = "0.4.1"
+version = "0.4.2"
 description = "Q-strings: query anything"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,3 +40,6 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 qstrings = { workspace = true }
+
+[tool.qstrings]
+history = "qstrings/history.duckdb"

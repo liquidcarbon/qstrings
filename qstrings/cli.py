@@ -3,9 +3,11 @@ from typing import Annotated, Literal, Optional
 import platform
 import sys
 
-from .config import setup_logger
+from .config import setup_history, setup_logger
 from .Q import Q
 
+
+Q.HISTORY = setup_history()
 
 if platform.system() == "Windows":
     STDOUT = "CON"
@@ -18,7 +20,7 @@ log = setup_logger(sink=sys.stderr)
 app = App(help="Query anything!")
 
 
-@app.default()
+@app.default
 def run_query(
     query: Annotated[
         Optional[str], Parameter(help="Query string", show_default=False)
@@ -98,9 +100,24 @@ def run_query(
 app.command(app_history := App(name="h", help="Run query from history"))
 
 
-@app_history.command(name="h", help="Run query from history")
-def query_from_history():
-    print("hi")
+@app_history.command(name="h", help="Run query from history / view history")
+@app_history.default
+def query_history(
+    alias: Annotated[Optional[str], Parameter(name="-a")] = None,
+    exec_id: Annotated[Optional[int], Parameter(name="-i")] = None,
+    limit: Annotated[Optional[int], Parameter(name=["-L", "--LIMIT"])] = None,
+):
+    if alias is None and exec_id is None:
+        run_query(
+            "FROM q ORDER BY exec_id", db=Q.HISTORY, limit=limit, output_format="csv"
+        )
+        exit()
+
+    qh = Q.from_history(alias=alias, exec_id=exec_id)
+    log.debug(f"Running from history: {qh}")
+    if limit:
+        qh = qh.limit(limit)
+    return qh.run()
 
 
 if __name__ == "__main__":

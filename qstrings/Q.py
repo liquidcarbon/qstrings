@@ -11,7 +11,7 @@ from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, Literal, Self, Union, overload
 
-from .config import HISTORY, log
+from .config import log
 
 PathType = Union[pathlib.Path, Any]
 StrPath = Union[str, os.PathLike[str], None]
@@ -30,7 +30,7 @@ def parse_keys(s: str) -> set[str]:
 class BaseQ(str):
     """Base Q-string class."""
 
-    __file__ = __file__
+    HISTORY = None
 
     def __new__(
         cls,
@@ -135,10 +135,30 @@ class BaseQ(str):
         return instance
 
     @classmethod
-    def from_history(cls, exec_id: int | None = None, alias: str | None = None) -> Self:
-        with duckdb.connect(HISTORY) as con:
-            rel = con.query(f"SELECT qstr FROM q WHERE exec_id={exec_id}")
-            qstr = rel.fetchall()[0][0]
+    def from_history(cls, exec_id: int | None = None, alias: str | None = "") -> Self:
+        """Retrieve most recent Q string from history matching exec_id or alias."""
+        with duckdb.connect(cls.HISTORY) as con:
+            if exec_id is None and alias == "":
+                # no exec_id or alias - load all, return most recent
+                where_ = ""
+            if alias is None:
+                # explicitly looking for no alias
+                where_ = "alias IS NULL"
+            elif alias:
+                # looking for specific alias
+                where_ = f"alias='{alias}'"
+            elif exec_id:
+                # looking for specific exec_id, overrides alias
+                where_ = f"{exec_id=}"
+
+            q_hist = (
+                sqlglot.parse_one("SELECT qstr FROM q")
+                .where(where_)
+                .order_by("id")
+                .sql()
+            )
+            rel = con.query(q_hist)
+            qstr = rel.fetchall()[-1][0]  # return latest match
             if not qstr:
                 raise QStringError(f"No history found for {exec_id=}, {alias=}")
             return cls(qstr)
@@ -174,8 +194,11 @@ class Q(BaseQ):
         engine = engine or "duckdb"
         return Engine[engine].df(self, **kwargs)
 
-    def save(self):
-        with duckdb.connect(HISTORY) as con:
+    def save(self) -> None:
+        """Save Q string execution to history."""
+        if not self.HISTORY:
+            return
+        with duckdb.connect(self.HISTORY) as con:
             last_q = con.read_json(
                 StringIO(self.json()),
                 # must spell out types or NULLs forced to JSON
@@ -249,6 +272,7 @@ class Engine(Registry, suffix="Engine", overwrite=True):
                 log.info(msg)
 
             if kwargs.get("save", True):
+                # log.debug(f"saving to history: {self}")
                 self.save()
 
             return result

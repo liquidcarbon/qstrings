@@ -2,8 +2,11 @@ import duckdb
 import os
 import pytest
 from pathlib import Path
-from qstrings import Engine, Q, QStringError
 from sqlglot.errors import ParseError
+
+from qstrings import config, Engine, Q, QStringError
+
+Q.HISTORY = config.setup_history(Path(__file__).parent / "test_history.duckdb")
 
 
 def test_empty_string():
@@ -124,10 +127,12 @@ def test_history_alias():
     q0 = Q("SELECT 42 AS blah", alias="blah")
     _ = q0.run()
     assert q0.alias == "blah"
-    q1 = Q.from_history(exec_id=q0.exec_id)
+    q1 = Q.from_history()  # loads most recent
     assert q1 == "SELECT 42 AS blah"
-    # q2 = Q.from_history(alias="blah")
-    # assert q2 == "SELECT 42 AS blah"
+    q2 = Q.from_history(exec_id=q0.exec_id)
+    assert q2 == "SELECT 42 AS blah"
+    q3 = Q.from_history(alias=q0.alias)
+    assert q3 == "SELECT 42 AS blah"
 
 
 def test_run_new_engine():

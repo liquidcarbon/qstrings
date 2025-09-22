@@ -103,8 +103,7 @@ Also, check out SQL+LLM query language [BlendSQL](https://github.com/parkervg/bl
 
 ### 0. History
 
-Qstrings maintains query history, which is an on-disk DuckDB database (default: `config.HISTORY=qstrings/history.duckdb`).
-
+Qstrings maintains query history, which is an on-disk DuckDB database (default: `qstrings/history.duckdb`).  Maybe set in `pyproject.toml` under `tool.qstrings.history`.
 
 
 > [!TIP]
@@ -151,6 +150,12 @@ def test_keys_given_in_env():"
 
 ### 2. Alias for queries
 
+```python
+q0 = Q("SELECT 'what a beatiful query'", alias="beautiful0")
+_ = q0.run()
+assert q0.alias == "beautiful0"
+```
+
 
 ### 3. Quick access to COUNT and LIMIT
 
@@ -196,19 +201,32 @@ Query anything!
 ╰────────────────────────────────────────────────────────────╯
 ```
 
+The query history is available through command `qh`.
 
 The crown of creation: pipe results of an LLM query to a SQL query.  The [prompt](https://github.com/liquidcarbon/qstrings/blob/main/tests/test_prompt1.md) provides an [affinity](https://github.com/liquidcarbon/affinity) data model and asks to find elements with 8 or more isotopes.
 
 ```bash
 export URL="https://raw.githubusercontent.com/liquidcarbon/chembiodata/main/isotopes.csv"
 
+q -f tests/test_prompt1.md -e hf 
+/* 250921@21:55:34|INFO|qstrings[0.4.2]:272|HFEngine: 209 input x 1011 output tokens in 4.0431 sec */
+/* The dataset is loaded from the CSV URL provided. We group rows by element symbol and atomic number,
+   then keep only those groups having a count of isotopes (rows) of at least eight. */
+SELECT symbol, number
+FROM 'https://raw.githubusercontent.com/liquidcarbon/chembiodata/main/isotopes.csv'
+GROUP BY symbol, number
+HAVING COUNT(*) >= 8;
+```
+
+Piping:
+
+```
 q -f tests/test_prompt1.md -e hf | q -o csv
-/* 250825@22:48:46.297|DEBUG|qstrings[0.2.1].Q.run:190|input_tokens=209 */
-/* 250825@22:48:46.297|DEBUG|qstrings[0.2.1].Q.run:191|output_tokens=611 */
-/* 250825@22:48:46.864|INFO|qstrings[0.2.1].Q.run:151|4 rows x 2 cols in 0.0000 sec */
-Symbol,num_isotopes
+Enter query (end with EOF / Ctrl-D):
+/* 250921@21:52:56|INFO|qstrings[0.4.1]:272|DuckDBEngine: 4 rows x 2 cols in 0.4222 sec */
+Symbol,isotope_count
+Te,8
 Sn,10
 Xe,9
-Te,8
 Cd,8
 ```
