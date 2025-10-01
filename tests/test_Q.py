@@ -55,6 +55,13 @@ def test_parse_error():
         _ = Q("SELE 42", validate=True)
 
 
+def test_select_42_duckdb_ast_sqlglot_should_know_this():
+    q = Q("SELECT 42 FROM 'data.csv'", validate=True)
+    assert q.ast.sql() == 'SELECT 42 FROM "data.csv"'
+    with pytest.raises(AssertionError):
+        assert q == q.ast.sql()
+
+
 def test_select_42_ast_transpile():
     q = Q("SELECT 42 LIMIT {n}", n=1)
     assert q.ast.sql() == "SELECT 42 LIMIT 1"
