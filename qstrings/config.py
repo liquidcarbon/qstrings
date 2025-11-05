@@ -3,9 +3,17 @@ import logging
 import os
 import sys
 import tomllib
+from dotenv import dotenv_values  # load_dotenv
 from pathlib import Path
 
 # HISTORY = Path(__file__).parent / "history.duckdb"
+
+# load_dotenv()
+config = {
+    **dotenv_values(Path(__file__).parent.parent / ".env"),
+    **os.environ,
+}
+print(config.get("QSTRINGS_HISTORY"))
 
 
 def read_pyproject() -> dict:
@@ -69,8 +77,11 @@ def setup_history(history_path: str | Path | None = None) -> Path:
     if history_path:
         return Path(history_path)
 
-    if env := os.getenv("QSTRINGS_HISTORY"):
-        return Path(env)
+    if qstrings_env := config.get("QSTRINGS_HISTORY"):
+        _md_token = os.getenv("MD_TOKEN")
+        if _md_token:
+            qstrings_env += f"?motherduck_token={_md_token}"
+        return Path(qstrings_env)
 
     pyproject = Path(__file__).parent.parent / "pyproject.toml"
     if pyproject.exists():

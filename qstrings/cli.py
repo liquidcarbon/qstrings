@@ -97,7 +97,12 @@ def run_query(
     return
 
 
-app.command(app_history := App(name="h", help="Run query from history"))
+app.command(
+    app_history := App(
+        name="h",
+        help=f"Run query from history @ {str(Q.HISTORY).split('?')[0]}",
+    )
+)
 
 
 @app_history.command(name="h", help="Run query from history / view history")

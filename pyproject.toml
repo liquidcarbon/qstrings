@@ -8,6 +8,7 @@ dependencies = [
     "autoregistry>=1.1.2",
     "duckdb>=1.2",
     "fsspec>=2025.9.0",
+    "python-dotenv>=1.2.1",
     "sqlglot>=27.6.0",
 ]
 
@@ -23,7 +24,7 @@ ai = [
     "openai>=1.101.0",
 ]
 cli = [
-    "cyclopts>=3.23.0",
+    "cyclopts>=4.0",
 ]
 api = [
     "robyn>=0.72.0",
